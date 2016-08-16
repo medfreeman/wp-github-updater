@@ -48,7 +48,7 @@ function __construct() {
 
 ### For themes
 
-Add the following code to your theme functions php file (make sure the second argument to GitHubUpdater class instantiation points to your theme root, e.g. __DIR__ if your functions.php file is in the root of your theme, adapt if not):
+Add the following code to your theme functions php file (make sure the second argument to GitHubUpdater class instantiation points to your theme root, e.g. \__DIR\__ if your functions.php file is in the root of your theme, adapt if not):
 ````
 ...
 
