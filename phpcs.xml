@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<ruleset name="PHP_CodeSniffer">
+	<description>The coding standard for wp-github-updater.</description>
+
+	<file>./</file>
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/wpcs/*</exclude-pattern>
+
+	<arg name="warning-severity" value="0"/>
+
+	<rule ref="WordPress"/>
+	<rule ref="Wordpress-Extra"/>
+</ruleset>

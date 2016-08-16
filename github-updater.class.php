@@ -1,0 +1,431 @@
+<?php
+/**
+ Github updater class for wordpress plugins and themes
+
+ @package github-updater
+
+	Copyright 2016 Mehdi Lahlou (mehdi.lahlou@free.fr)
+
+	This program is free software; you can redistribute it and/or modify
+	it under the terms of the GNU General Public License, version 2, as
+	published by the Free Software Foundation.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program; if not, write to the Free Software
+	Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+
+if ( ! class_exists( 'GitHubUpdater' ) ) {
+
+	/**
+	 * GitHubUpdater class
+	 */
+	class GitHubUpdater {
+
+		/**
+		 * __FILE__ of our plugin or __DIR__ of our theme.
+		 *
+		 * @var string $resource_path __FILE__ of our plugin or __DIR__ of our theme.
+		 */
+		private $resource_path;
+		/**
+		 * Wordpress plugin or theme data.
+		 *
+		 * @var array $resource_data Wordpress plugin or theme data.
+		 */
+		private $resource_data;
+		/**
+		 * Plugin or theme slug.
+		 *
+		 * @var string $slug Plugin or theme slug.
+		 */
+		private $slug;
+		/**
+		 * GitHub username.
+		 *
+		 * @var string $username GitHub username.
+		 */
+		private $username;
+		/**
+		 * GitHub repo name.
+		 *
+		 * @var string $repo GitHub repo name.
+		 */
+		private $repo;
+		/**
+		 * GitHub private repo token.
+		 *
+		 * @var string $access_token GitHub private repo token.
+		 */
+		private $access_token;
+		/**
+		 * Holds data from GitHub.
+		 *
+		 * @var array $github_api_result Holds data from GitHub.
+		 */
+		private $github_api_result;
+
+		/**
+		 * Constructor
+		 *
+		 * @param string $resource_type       The project type: 'theme' or 'plugin'.
+		 * @param string $resource_path       The theme root folder, or plugin's php file.
+		 * @param string $access_token        Optional github access token for private plugins.
+		 */
+		function __construct( $resource_type, $resource_path, $access_token = '' ) {
+			$this->resource_path = $resource_path;
+			$this->access_token = $access_token;
+
+			if ( 'plugin' === $resource_type ) {
+				$this->init_plugin_data();
+				add_filter( 'pre_set_site_transient_update_plugins', array( $this, 'plugin_set_transient' ) );
+				add_filter( 'plugins_api', array( $this, 'resource_set_info' ), 10, 3 );
+				add_filter( 'upgrader_pre_install', array( $this, 'plugin_pre_install' ), 10, 3 );
+				add_filter( 'upgrader_post_install', array( $this, 'plugin_post_install' ), 10, 3 );
+			} elseif ( 'theme' === $resource_type ) {
+				$this->init_theme_data();
+				add_filter( 'pre_set_site_transient_update_themes', array( $this, 'theme_set_transient' ) );
+				add_filter( 'themes_api', array( $this, 'resource_set_info' ), 10, 3 );
+				add_filter( 'upgrader_pre_install', array( $this, 'theme_pre_install' ), 10, 3 );
+				add_filter( 'upgrader_post_install', array( $this, 'theme_post_install' ), 10, 3 );
+			}
+		}
+
+		/**
+		 * Get information regarding our plugin from WordPress
+		 */
+		private function init_plugin_data() {
+			$this->slug = plugin_basename( $this->resource_path );
+			$this->resource_data = get_plugin_data( $this->resource_path );
+			$this->resource_data['ResourceURI'] = $this->resource_data['PluginURI'];
+
+			$this->get_github_credentials_from_url( $this->resource_data['PluginURI'] );
+		}
+
+		/**
+		 * Get information regarding our theme from WordPress
+		 */
+		private function init_theme_data() {
+			$this->slug = basename( $this->resource_path );
+			$theme = wp_get_theme( $this->slug );
+
+			$this->resource_data = array();
+			$this->resource_data['ThemeURI'] = esc_html( $theme->get( 'ThemeURI' ) );
+			$this->resource_data['ResourceURI'] = $this->resource_data['ThemeURI'];
+			$this->resource_data['Name'] = $theme->get( 'Name' );
+			$this->resource_data['AuthorName'] = $theme->get( 'Author' );
+			$this->resource_data['Description'] = $theme->get( 'Description' );
+
+			$this->get_github_credentials_from_url( $this->resource_data['ThemeURI'] );
+		}
+
+		/**
+		 * Parse url, if it's a github url get username and repository ans store them.
+		 *
+		 * @param string $url Github url to parse.
+		 */
+		private function get_github_credentials_from_url( $url ) {
+			$url_components = wp_parse_url( $url );
+			if ( false !== $url_components ) {
+				if ( 'github.com' === $url_components['host'] ) {
+					$github_properties = explode( '/', trim( $url_components['path'], '/' ) );
+					if ( false !== $github_properties && 2 === count( $github_properties ) ) {
+						$this->username = $github_properties[0];
+						$this->repo = $github_properties[1];
+						return true;
+					}
+				}
+			}
+			return false;
+		}
+
+		/**
+		 * Get information regarding our plugin or theme from GitHub
+		 */
+		private function get_repo_release_info() {
+			// Only do this once.
+			if ( ! empty( $this->github_api_result ) ) {
+				return;
+			}
+
+			// Query the GitHub API.
+			$url = "https://api.github.com/repos/{$this->username}/{$this->repo}/releases";
+
+			// We need the access token for private repos.
+			if ( ! empty( $this->access_token ) ) {
+				$url = add_query_arg( array( 'access_token' => $this->access_token ), $url );
+			}
+
+			// Get the results.
+			$this->github_api_result = wp_remote_retrieve_body( wp_remote_get( $url ) );
+			if ( ! empty( $this->github_api_result ) ) {
+				$this->github_api_result = @json_decode( $this->github_api_result );
+			}
+
+			// Use only the latest release.
+			if ( is_array( $this->github_api_result ) && ! empty( $this->github_api_result ) ) {
+				$this->github_api_result = $this->github_api_result[0];
+			}
+		}
+
+		/**
+		 * Determine what file to download for the plugin or theme from GitHub
+		 * If there's a release asset, return its url, if not return source code.
+		 *
+		 * @return string $url The url of plugin or theme file to download.
+		 */
+		private function get_download_url() {
+			// Get plugin & GitHub release information.
+			// $this->init_plugin_data();.
+			$this->get_repo_release_info();
+
+			if ( isset( $this->github_api_result->assets ) && ! empty( $this->github_api_result->assets ) ) {
+				$url = $this->github_api_result->assets[0]->url;
+			} else {
+				$url = $this->github_api_result->zipball_url;
+			}
+
+			return $url;
+		}
+
+		/**
+		 * Push in plugin version information to get the update notification
+		 *
+		 * @param object $transient Wordpress transient object.
+		 */
+		public function plugin_set_transient( $transient ) {
+			// If we have checked the plugin data before, don't re-check.
+			if ( empty( $transient->checked ) ) {
+				return $transient;
+			}
+
+			// Get plugin & GitHub release information.
+			// $this->init_plugin_data();.
+			$this->get_repo_release_info();
+
+			// If tag name is empty, return.
+			if ( ! isset( $this->github_api_result->tag_name ) ) {
+				return $transient;
+			}
+
+			// Check the versions if we need to do an update.
+			$do_update = version_compare( $this->github_api_result->tag_name, $transient->checked[ $this->slug ] );
+
+			// Update the transient to include our updated plugin data.
+			if ( $do_update ) {
+				$package = $this->get_download_url();
+
+				// Include the access token for private GitHub repos.
+				if ( ! empty( $this->access_token ) ) {
+					$package = add_query_arg( array( 'access_token' => $this->access_token ), $package );
+				}
+
+				$obj = new stdClass();
+				$obj->slug = $this->slug;
+				$obj->new_version = $this->github_api_result->tag_name;
+				$obj->url = $this->resource_data['ResourceURI'];
+				$obj->package = $package;
+
+				$transient->response[ $this->slug ] = $obj;
+			}
+
+			return $transient;
+		}
+
+		/**
+		 * Push in theme version information to get the update notification
+		 *
+		 * @param object $transient Wordpress transient object.
+		 */
+		public function theme_set_transient( $transient ) {
+			// If we have checked the plugin data before, don't re-check.
+			if ( empty( $transient->checked ) ) {
+				return $transient;
+			}
+
+			// Get plugin & GitHub release information.
+			// $this->init_plugin_data();.
+			$this->get_repo_release_info();
+
+			// If tag name is empty, return.
+			if ( ! isset( $this->github_api_result->tag_name ) ) {
+				return $transient;
+			}
+
+			// Check the versions if we need to do an update.
+			$do_update = version_compare( $this->github_api_result->tag_name, $transient->checked[ $this->slug ] );
+
+			// Update the transient to include our updated plugin data.
+			if ( $do_update ) {
+				$package = $this->get_download_url();
+
+				// Include the access token for private GitHub repos.
+				if ( ! empty( $this->access_token ) ) {
+					$package = add_query_arg( array( 'access_token' => $this->access_token ), $package );
+				}
+
+				$theme_array = array();
+				$theme_array['new_version'] = $this->github_api_result->tag_name;
+				$theme_array['url'] = $this->resource_data['ResourceURI'];
+				$theme_array['package'] = $package;
+
+				$transient->response[ $this->slug ] = $theme_array;
+			}
+
+			return $transient;
+		}
+
+		/**
+		 * Push in plugin or theme version information to display in the details lightbox
+		 *
+		 * @param false|object|array $result The result object or array. Default false.
+		 * @param string             $action The type of information being requested from the Plugin or Theme Install API.
+		 * @param object             $args   Plugin or theme API arguments.
+		 */
+		public function resource_set_info( $result, $action, $args ) {
+			// Get plugin & GitHub release information.
+			// $this->init_plugin_data();.
+			$this->get_repo_release_info();
+
+			// If nothing is found, do nothing.
+			if ( empty( $args->slug ) || $args->slug != $this->slug ) {
+				return $result;
+			}
+
+			// Add our plugin information.
+			$args->last_updated = $this->github_api_result->published_at;
+			$args->slug = $this->slug;
+			$args->name  = $this->resource_data['Name'];
+			$args->version = $this->github_api_result->tag_name;
+			$args->author = $this->resource_data['AuthorName'];
+			$args->homepage = $this->resource_data['ResourceURI'];
+
+			// This is our release download zip file.
+			$download_link = $this->get_download_url();
+
+			// Include the access token for private GitHub repos.
+			if ( ! empty( $this->access_token ) ) {
+				$download_link = add_query_arg(
+					array( 'access_token' => $this->access_token ),
+					$download_link
+				);
+			}
+			$args->download_link = $download_link;
+
+			// We're going to parse the GitHub markdown release notes, include the parser.
+			// TODO: replace by CommonMark parser.
+			// require_once( plugin_dir_path( __FILE__ ) . "Parsedown.php" );.
+			// Create tabs in the lightbox.
+			$args->sections = array(
+				'description' => $this->resource_data['Description'],
+				'changelog' => class_exists( 'Parsedown' )
+					? Parsedown::instance()->parse( $this->github_api_result->body )
+					: $this->github_api_result->body,
+			);
+
+			// Gets the required version of WP if available.
+			$matches = null;
+			preg_match( '/requires:\s([\d\.]+)/i', $this->github_api_result->body, $matches );
+			if ( ! empty( $matches ) ) {
+				if ( is_array( $matches ) ) {
+					if ( count( $matches ) > 1 ) {
+						$args->requires = $matches[1];
+					}
+				}
+			}
+
+			// Gets the tested version of WP if available.
+			$matches = null;
+			preg_match( '/tested:\s([\d\.]+)/i', $this->github_api_result->body, $matches );
+			if ( ! empty( $matches ) ) {
+				if ( is_array( $matches ) ) {
+					if ( count( $matches ) > 1 ) {
+						$args->tested = $matches[1];
+					}
+				}
+			}
+
+			return $args;
+		}
+
+		/**
+		 * Perform check before installation starts.
+		 *
+		 * @param  bool|WP_Error $response   Response.
+		 * @param  array         $hook_extra Extra arguments passed to hooked filters.
+		 */
+		public function plugin_pre_install( $response, $hook_extra ) {
+			// Get plugin information.
+			// $this->init_plugin_data();.
+			// Check if the plugin was installed before...
+			$this->plugin_activated = is_plugin_active( $this->slug );
+			// TODO: rename downloaded file to .zip in case of release asset.
+		}
+
+		/**
+		 * Perform check before installation starts.
+		 *
+		 * @param  bool|WP_Error $response   Response.
+		 * @param  array         $hook_extra Extra arguments passed to hooked filters.
+		 */
+		public function theme_pre_install( $response, $hook_extra ) {
+			// Get plugin information.
+			// $this->init_plugin_data();.
+			// TODO: rename downloaded file to .zip in case of release asset.
+		}
+
+		/**
+		 * Perform additional actions to successfully install our plugin
+		 *
+		 * @param bool  $response   Install response.
+		 * @param array $hook_extra Extra arguments passed to hooked filters.
+		 * @param array $result     Installation result data.
+		 */
+		public function plugin_post_install( $response, $hook_extra, $result ) {
+			global $wp_filesystem;
+
+			// Since we are hosted in GitHub, our plugin folder would have a dirname of
+			// reponame-tagname change it to our original one.
+			$plugin_folder = WP_PLUGIN_DIR . DIRECTORY_SEPARATOR . dirname( $this->slug );
+			$wp_filesystem->move( $result['destination'], $plugin_folder );
+			$result['destination'] = $plugin_folder;
+
+			// Re-activate plugin if needed.
+			if ( $this->plugin_activated ) {
+				$activate = activate_plugin( $this->slug );
+			}
+
+			return $result;
+		}
+
+		/**
+		 * Perform additional actions to successfully install our theme
+		 *
+		 * @param bool  $response   Install response.
+		 * @param array $hook_extra Extra arguments passed to hooked filters.
+		 * @param array $result     Installation result data.
+		 */
+		public function theme_post_install( $response, $hook_extra, $result ) {
+			global $wp_filesystem;
+
+			// Since we are hosted in GitHub, our plugin folder would have a dirname of
+			// reponame-tagname change it to our original one.
+			$theme_folder = get_theme_root() . DIRECTORY_SEPARATOR . dirname( $this->slug );
+			$wp_filesystem->move( $result['destination'], $theme_folder );
+			$result['destination'] = $theme_folder;
+
+			// TODO: reactivate the theme if needed.
+			// Re-activate plugin if needed.
+			// if ( $this->plugin_activated ) {
+			// $activate = activate_plugin( $this->slug );
+			// }.
+			return $result;
+		}
+	}
+
+}
