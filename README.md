@@ -36,7 +36,7 @@ function __construct() {
 	 * github updater class from wp-github-updater plugin.
 	 */
 	function handle_github_update() {
-		if ( class_exists( 'GitHubUpdater' ) {
+		if ( class_exists( 'GitHubUpdater' ) ) {
 		  new GitHubUpdater( 'plugin', __FILE__ );
 		}
 	}
@@ -62,7 +62,7 @@ if ( ! function_exists( 'myprefix_handle_github_update' ) ) {
 	 * github updater class from wp-github-updater plugin.
 	 */
 	function myprefix_handle_github_update() {
-		if ( class_exists( 'GitHubUpdater' ) {
+		if ( class_exists( 'GitHubUpdater' ) ) {
 		  new GitHubUpdater( 'theme', __DIR__ );
 		}
 	}
