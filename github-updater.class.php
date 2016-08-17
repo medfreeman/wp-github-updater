@@ -199,7 +199,7 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 		 */
 		public function plugin_set_transient( $transient ) {
 			// If we have checked the plugin data before, don't re-check.
-			if ( isset( $transient->checked[ $this->slug ] ) ) {
+			if ( ! isset( $transient->checked ) || ! isset( $transient->checked[ $this->slug ] ) ) {
 				return $transient;
 			}
 
@@ -243,7 +243,7 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 		 */
 		public function theme_set_transient( $transient ) {
 			// If we have checked the plugin data before, don't re-check.
-			if ( isset( $transient->checked[ $this->slug ] ) ) {
+			if ( ! isset( $transient->checked ) || ! isset( $transient->checked[ $this->slug ] ) ) {
 				return $transient;
 			}
 
