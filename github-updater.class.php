@@ -131,7 +131,7 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 		}
 
 		/**
-		 * Parse url, if it's a github url get username and repository ans store them.
+		 * Parse url, if it's a github url get username and repository and store them.
 		 *
 		 * @param string $url Github url to parse.
 		 */
