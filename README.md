@@ -1,4 +1,6 @@
 # wp-github-updater
+[![Travis Build Status](https://img.shields.io/travis/medfreeman/wp-github-updater.svg?label=build)](https://travis-ci.org/medfreeman/wp-github-updater)
+
 Wordpress plugin that enables automatic updates of plugins and themes from github
 
 ## Installation
