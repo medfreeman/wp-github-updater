@@ -1,0 +1,40 @@
+sudo: required
+dist: trusty
+language: node_js
+node_js:
+- '5'
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    packages:
+    - g++-4.8
+    - openjdk-7-jdk
+    - php5-cli
+    - zip
+matrix:
+  fast_finish: true
+cache:
+  directories:
+  - node_modules
+before_install:
+- npm set progress=false
+- npm prune
+script: npm test
+env:
+  global:
+  - CXX=g++-4.8
+  - NODE_ENV=development
+  - REPO_NAME=$(basename $TRAVIS_REPO_SLUG)
+before_deploy:
+- zip -r "../${REPO_NAME}-${TRAVIS_TAG}.zip" ./* --exclude @.zipignore
+deploy:
+  provider: releases
+  skip_cleanup: true
+  api-key:
+    secure: tefqMPM+k3Lbibfl/BtmNKyaaIz+CV3OMM20TWlg5DnFgqFsz9KV0XZCjqgytyjdkq0iEUVzmr7KHL3CM2yRoFG93+rAB4cEiUWqpCwTOnqvbxMOoFQgltHubK+6o5/iEIDOWvvaIJbMndkM0W0KDiGDDXQm2VaGOiumLhjmfldMhzxt+X+889pyRqfOQ4n+BeutyVXSY9LD790DYIRcDbnf9AQGje2+pUD4tq1Tz1/z3AkaaD9fP0O1p1NrH93EAOjEXLf4G4p/Wvpt5dE0gVRsGAZEwC0/ZpOcds7XLKW5kMhWjXgZxULWVjp1DfDQPe1062VqdpIbB+qmxiYeHxv7s4Jjo4kSsHW5RL/XsLL/thvzc8VF0bZ4x/Z6CQmFQ7ures6dZRD/Du+FViSECyL+pxyIfQDT/X50WSilQJPqQ5VqDQ+Xk0MkzVT7XBtGcw63OkIqQzEM5kcMQhrEiWcu0+D1odUr5wLZ0hEpiII3donzdrHGcgrUMi6SE5st75DG/fYStUhDkBqH7r6olWbAlV0jXlUeDkWyG5uGXepvig2rLCY7dqFPlVy7x4Hgl1FuBkEVLvb41j6A4Z5gNdFNuTDSQXA8Y6rDfiMh/FGw6smH9GaQm/faN8uwKcO8tPPz3EOhP6hCm6LfLTLJj3SDUG0sKUPSvC/3bgLz+1A=
+  file_glob: true
+  file: "../${REPO_NAME}-${TRAVIS_TAG}.zip"
+  on:
+    repo: medfreeman/wp-github-updater
+    tags: true
