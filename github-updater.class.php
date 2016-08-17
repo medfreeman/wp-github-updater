@@ -91,7 +91,6 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 				$this->init_theme_data();
 				add_filter( 'pre_set_site_transient_update_themes', array( $this, 'theme_set_transient' ) );
 				add_filter( 'themes_api', array( $this, 'resource_set_info' ), 10, 3 );
-				add_filter( 'upgrader_pre_install', array( $this, 'theme_pre_install' ), 10, 3 );
 				add_filter( 'upgrader_post_install', array( $this, 'theme_post_install' ), 10, 3 );
 			}
 		}
@@ -185,7 +184,7 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 			$this->get_repo_release_info();
 
 			if ( isset( $this->github_api_result->assets ) && ! empty( $this->github_api_result->assets ) ) {
-				$url = $this->github_api_result->assets[0]->url;
+				$url = $this->github_api_result->assets[0]->browser_download_url;
 			} else {
 				$url = $this->github_api_result->zipball_url;
 			}
@@ -200,7 +199,7 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 		 */
 		public function plugin_set_transient( $transient ) {
 			// If we have checked the plugin data before, don't re-check.
-			if ( empty( $transient->checked ) ) {
+			if ( isset( $transient->checked[ $this->slug ] ) ) {
 				return $transient;
 			}
 
@@ -228,7 +227,7 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 				$obj = new stdClass();
 				$obj->slug = $this->slug;
 				$obj->new_version = $this->github_api_result->tag_name;
-				$obj->url = $this->resource_data['ResourceURI'];
+				$obj->url = $this->resource_data['PluginURI'];
 				$obj->package = $package;
 
 				$transient->response[ $this->slug ] = $obj;
@@ -244,7 +243,7 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 		 */
 		public function theme_set_transient( $transient ) {
 			// If we have checked the plugin data before, don't re-check.
-			if ( empty( $transient->checked ) ) {
+			if ( isset( $transient->checked[ $this->slug ] ) ) {
 				return $transient;
 			}
 
@@ -271,7 +270,7 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 
 				$theme_array = array();
 				$theme_array['new_version'] = $this->github_api_result->tag_name;
-				$theme_array['url'] = $this->resource_data['ResourceURI'];
+				$theme_array['url'] = $this->resource_data['ThemeURI'];
 				$theme_array['package'] = $package;
 
 				$transient->response[ $this->slug ] = $theme_array;
@@ -360,23 +359,8 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 		 * @param  array         $hook_extra Extra arguments passed to hooked filters.
 		 */
 		public function plugin_pre_install( $response, $hook_extra ) {
-			// Get plugin information.
-			// $this->init_plugin_data();.
 			// Check if the plugin was installed before...
 			$this->plugin_activated = is_plugin_active( $this->slug );
-			// TODO: rename downloaded file to .zip in case of release asset.
-		}
-
-		/**
-		 * Perform check before installation starts.
-		 *
-		 * @param  bool|WP_Error $response   Response.
-		 * @param  array         $hook_extra Extra arguments passed to hooked filters.
-		 */
-		public function theme_pre_install( $response, $hook_extra ) {
-			// Get plugin information.
-			// $this->init_plugin_data();.
-			// TODO: rename downloaded file to .zip in case of release asset.
 		}
 
 		/**
@@ -389,11 +373,18 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 		public function plugin_post_install( $response, $hook_extra, $result ) {
 			global $wp_filesystem;
 
-			// Since we are hosted in GitHub, our plugin folder would have a dirname of
-			// reponame-tagname change it to our original one.
-			$plugin_folder = WP_PLUGIN_DIR . DIRECTORY_SEPARATOR . dirname( $this->slug );
-			$wp_filesystem->move( $result['destination'], $plugin_folder );
-			$result['destination'] = $plugin_folder;
+			if ( ! isset( $hook_extra['plugin'] ) || $this->slug !== $hook_extra['plugin'] ) {
+				return $result;
+			}
+
+			if ( $this->slug !== $result['destination_name'] ) {
+				$temp_destination_name = $result['destination_name'];
+				$temp_destination = $result['destination'];
+				$result['destination_name'] = str_replace( $temp_destination_name, $this->slug, $result['destination_name'] );
+				$result['destination'] = str_replace( $temp_destination_name, $this->slug, $result['destination'] );
+				$result['remote_destination'] = str_replace( $temp_destination_name, $this->slug, $result['remote_destination'] );
+				$wp_filesystem->move( $temp_destination, $result['destination'] );
+			}
 
 			// Re-activate plugin if needed.
 			if ( $this->plugin_activated ) {
@@ -413,17 +404,19 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 		public function theme_post_install( $response, $hook_extra, $result ) {
 			global $wp_filesystem;
 
-			// Since we are hosted in GitHub, our plugin folder would have a dirname of
-			// reponame-tagname change it to our original one.
-			$theme_folder = get_theme_root() . DIRECTORY_SEPARATOR . dirname( $this->slug );
-			$wp_filesystem->move( $result['destination'], $theme_folder );
-			$result['destination'] = $theme_folder;
+			if ( ! isset( $hook_extra['theme'] ) || $this->slug !== $hook_extra['theme'] ) {
+				return $result;
+			}
 
-			// TODO: reactivate the theme if needed.
-			// Re-activate plugin if needed.
-			// if ( $this->plugin_activated ) {
-			// $activate = activate_plugin( $this->slug );
-			// }.
+			if ( $this->slug !== $result['destination_name'] ) {
+				$temp_destination_name = $result['destination_name'];
+				$temp_destination = $result['destination'];
+				$result['destination_name'] = str_replace( $temp_destination_name, $this->slug, $result['destination_name'] );
+				$result['destination'] = str_replace( $temp_destination_name, $this->slug, $result['destination'] );
+				$result['remote_destination'] = str_replace( $temp_destination_name, $this->slug, $result['remote_destination'] );
+				$wp_filesystem->move( $temp_destination, $result['destination'] );
+			}
+
 			return $result;
 		}
 	}
