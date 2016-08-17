@@ -97,6 +97,7 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 				$this->init_theme_data();
 				add_filter( 'pre_set_site_transient_update_themes', array( $this, 'theme_set_transient' ) );
 				add_filter( 'themes_api', array( $this, 'resource_set_info' ), 10, 3 );
+				add_filter( 'upgrader_source_selection', array( $this, 'theme_upgrader_source_selection' ), 10, 4 );
 				add_filter( 'upgrader_post_install', array( $this, 'theme_post_install' ), 10, 3 );
 			}
 		}
@@ -366,6 +367,63 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 		public function plugin_pre_install( $response, $hook_extra ) {
 			// Check if the plugin was installed before...
 			$this->plugin_activated = is_plugin_active( $this->slug );
+		}
+
+		/**
+		 * Rename the zip folder to be the same as the existing repository folder.
+		 * This method needed for correct updating/re-activation of current, active theme only.
+		 *
+		 * @global object $wp_filesystem
+		 *
+		 * @param string $source        File source location.
+		 * @param string $remote_source Remote file source location.
+		 * @param object $upgrader      WP_Upgrader instance.
+		 *
+		 * @return string $source|$corrected_source
+		 */
+		public function theme_upgrader_source_selection( $source, $remote_source, $upgrader ) {
+			require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+			global $wp_filesystem;
+			$source_base = basename( $source );
+			$active_theme = wp_get_theme()->stylesheet;
+
+			/*
+			 * Check for upgrade process, return if not correct upgrader.
+			 */
+			if ( ! ( $upgrader instanceof \Theme_Upgrader ) ) {
+				return $source;
+			}
+
+			/*
+			 * Set source for updating only for current active theme.
+			 */
+			if ( $active_theme === $upgrader->skin->theme_info->stylesheet ) {
+				$corrected_source = trailingslashit( $remote_source ) . trailingslashit( $active_theme );
+			} else {
+				return $source;
+			}
+
+			$upgrader->skin->feedback(
+				sprintf(
+					esc_html__( 'Renaming %1$s to %2$s', 'github-updater' ) . '&#8230;',
+					'<span class="code">' . $source_base . '</span>',
+					'<span class="code">' . basename( $corrected_source ) . '</span>'
+				)
+			);
+
+			/*
+			 * If we can rename, do so and return the new name.
+			 */
+			if ( $wp_filesystem->move( $source, $corrected_source, true ) ) {
+				$upgrader->skin->feedback( esc_html__( 'Rename successful', 'wp-github-updater' ) . '&#8230;' );
+				return $corrected_source;
+			}
+
+			/*
+			 * Otherwise, return an error.
+			 */
+			$upgrader->skin->feedback( esc_html__( 'Unable to rename downloaded repository.', 'wp-github-updater' ) );
+			return new \WP_Error();
 		}
 
 		/**
