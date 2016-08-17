@@ -1,5 +1,7 @@
 {
     "require": {
-        "league/commonmark": "^0.14.0"
+        "league/commonmark": "^0.14.0",
+        "ramsey/uuid": "^3.5",
+        "ircmaxell/random-lib": "^1.1"
     }
 }
