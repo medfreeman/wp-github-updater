@@ -20,6 +20,9 @@
 	Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+require __DIR__ . '/vendor/autoload.php';
+use League\CommonMark\CommonMarkConverter;
+
 if ( ! class_exists( 'GitHubUpdater' ) ) {
 
 	/**
@@ -316,15 +319,14 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 			}
 			$args->download_link = $download_link;
 
-			// We're going to parse the GitHub markdown release notes, include the parser.
-			// TODO: replace by CommonMark parser.
-			// require_once( plugin_dir_path( __FILE__ ) . "Parsedown.php" );.
+			// We're going to parse the GitHub markdown release notes, instantiate the parser.
+			$converter = new CommonMarkConverter();
+			$changelog = $converter->convertToHtml( $this->github_api_result->body );
+
 			// Create tabs in the lightbox.
 			$args->sections = array(
 				'description' => $this->resource_data['Description'],
-				'changelog' => class_exists( 'Parsedown' )
-					? Parsedown::instance()->parse( $this->github_api_result->body )
-					: $this->github_api_result->body,
+				'changelog' => $changelog,
 			);
 
 			// Gets the required version of WP if available.

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Wordpress plugin that enables automatic updates of plugins and themes from github",
   "scripts": {
-    "postinstall": "npm run composer -- create-project wp-coding-standards/wpcs:dev-master --no-dev --keep-vcs",
+    "postinstall": "npm run composer -- install && npm run composer -- create-project wp-coding-standards/wpcs:dev-master --no-dev --keep-vcs",
     "test": "npm run phpcs -- --extensions=php",
     "composer": "php ./node_modules/getcomposer/composer.phar",
     "phpcs": "./wpcs/vendor/bin/phpcs"
