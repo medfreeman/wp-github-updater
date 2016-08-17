@@ -378,10 +378,11 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 		 * @param string $source        File source location.
 		 * @param string $remote_source Remote file source location.
 		 * @param object $upgrader      WP_Upgrader instance.
+		 * @param array  $hook_extra    Extra update information, from WP version 4.4.
 		 *
 		 * @return string $source|$corrected_source
 		 */
-		public function theme_upgrader_source_selection( $source, $remote_source, $upgrader ) {
+		public function theme_upgrader_source_selection( $source, $remote_source, $upgrader, $hook_extra = null ) {
 			require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
 			global $wp_filesystem;
 			$source_base = basename( $source );
@@ -398,7 +399,7 @@ if ( ! class_exists( 'GitHubUpdater' ) ) {
 			 * Set source for updating only for current active theme.
 			 */
 			if ( $active_theme === $upgrader->skin->theme_info->stylesheet ) {
-				$corrected_source = trailingslashit( $remote_source ) . trailingslashit( $active_theme );
+				$corrected_source = str_replace( $source_base, $active_theme, $source );
 			} else {
 				return $source;
 			}
