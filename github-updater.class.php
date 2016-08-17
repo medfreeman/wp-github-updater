@@ -20,6 +20,9 @@
 	Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+?>
+
+<?php
 require __DIR__ . '/vendor/autoload.php';
 use League\CommonMark\CommonMarkConverter;
 
