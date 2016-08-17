@@ -9,6 +9,9 @@
 
 	<arg name="warning-severity" value="0"/>
 
-	<rule ref="WordPress"/>
+	<rule ref="WordPress">
+		<!-- Waiting for integration of issue's fix in wp coding standards https://github.com/squizlabs/PHP_CodeSniffer/issues/1112 -->
+		<exclude name="Squiz.Commenting.FileComment.Missing" />
+	</rule>
 	<rule ref="Wordpress-Extra"/>
 </ruleset>
