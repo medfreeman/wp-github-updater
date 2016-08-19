@@ -11,7 +11,7 @@
  * Plugin Name: Github updater
  * Plugin URI:  https://example.com/plugin-name
  * Description: Enables automatic updates of plugins and themes from github
- * Version:     1.0.0
+ * Version:     1.1.0
  * Author:      Mehdi Lahlou
  * Author URI:  https://github.com/medfreeman
  * Text Domain: wp-github-updater
