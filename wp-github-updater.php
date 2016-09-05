@@ -9,7 +9,7 @@
  *
  * @wordpress-plugin
  * Plugin Name: Github updater
- * Plugin URI:  https://example.com/plugin-name
+ * Plugin URI:  https://github.com/medfreeman/wp-github-updater
  * Description: Enables automatic updates of plugins and themes from github
  * Version:     1.1.0
  * Author:      Mehdi Lahlou
