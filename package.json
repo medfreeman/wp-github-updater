@@ -1,6 +1,6 @@
 {
   "name": "wp-github-updater",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Wordpress plugin that enables automatic updates of plugins and themes from github",
   "scripts": {
     "postinstall": "npm run composer -- install && npm run composer -- create-project wp-coding-standards/wpcs:dev-master --no-dev --keep-vcs",
