@@ -29,7 +29,6 @@ class WpGithubUpdater {
 	const API_TOKEN_OPTION_KEY    = 'wp_github_updater_api_token';
 	const API_NAMESPACE           = 'wp-github-updater/v1';
 	const API_ENDPOINT            = '/update-check';
-	const TEXT_DOMAIN             = 'wp-github-updater';
 
 	/**
 	 * Constructor
@@ -71,7 +70,7 @@ class WpGithubUpdater {
 		$api_update_check_url = add_query_arg( 'token', get_option( self::API_TOKEN_OPTION_KEY ), $api_update_check_url );
 
 		$custom_actions = array(
-			'update' => sprintf( '<a href="%s" target="_blank">%s</a>', $api_update_check_url, __( 'Api URL', self::TEXT_DOMAIN ) ),
+			'update' => sprintf( '<a href="%s" target="_blank">%s</a>', $api_update_check_url, __( 'Api URL', 'wp-github-updater' ) ),
 		);
 
 		// Add the links to the front of the actions list.
