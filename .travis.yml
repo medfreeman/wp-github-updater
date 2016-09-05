@@ -17,6 +17,8 @@ matrix:
 cache:
   directories:
   - node_modules
+git:
+  depth: 1
 before_install:
 - npm set progress=false
 - npm prune
