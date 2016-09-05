@@ -27,8 +27,8 @@ env:
   - NODE_ENV=development
   - REPO_NAME=$(basename $TRAVIS_REPO_SLUG)
 before_deploy:
-- cd ../
-- zip -r "./${REPO_NAME}-${TRAVIS_TAG}.zip" "./${REPO_NAME}/*" --exclude @"./${REPO_NAME}/.zipignore"
+- cd ..
+- zip -r "./${REPO_NAME}-${TRAVIS_TAG}.zip" "./${REPO_NAME}/" --exclude @"./${REPO_NAME}/.zipignore"
 - cd $TRAVIS_BUILD_DIR
 deploy:
   provider: releases
