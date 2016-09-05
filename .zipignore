@@ -1,6 +1,6 @@
-.*
-composer.*
-node_modules/*
-package.json
-phpcs.xml
-wpcs/*
+*/.*
+*/composer.*
+*/node_modules/*
+*/package.json
+*/phpcs.xml
+*/wpcs/*
